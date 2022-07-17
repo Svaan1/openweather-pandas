@@ -1,6 +1,5 @@
-from pandas import DataFrame
-from datetime import datetime
-import functions
+
+from functions import QueryClient, set_configs
 from argparse import ArgumentParser
 
 # Arguments #
@@ -12,29 +11,10 @@ if args.command == 'config':
     set_configs()
 
 
-    results_dictionary = {
-        'dt': [],
-        'aqi': [],
-        'co': [],
-        'no': [],
-        'no2': [],
-        'o3': [],
-        'so2': [],
-        'pm2_5': [],
-        'pm10': [],
-        'nh3': [],
-        'latlon': []
-    }
+elif args.command == 'request':
 
-    # Add information to results_dictionary
-    for item in query['list']:
-        timestamp = item['dt']
-        date_time = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-
-        results_dictionary['dt'].append(date_time)
-        results_dictionary['aqi'].append(item['main']['aqi'])
-        results_dictionary['latlon'].append(f'({query["coord"]["lat"]},{query["coord"]["lon"]})')
-
-        for key, value in item['components'].items():
-            results_dictionary[key].append(value)
-
+    # Standard use of the client
+    query = QueryClient()
+    query.initial_setup()
+    query.get_api_response()
+    query.add_query_to_database()
