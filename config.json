@@ -1,0 +1,17 @@
+{
+    "api_key": "",
+    "database": {
+        "dialect": "",
+        "username": "",
+        "password": "",
+        "host": "",
+        "port": "",
+        "dbname": ""
+    },
+    "query": {
+        "lat": "",
+        "lon": "",
+        "start": "",
+        "end": ""
+    }
+}
