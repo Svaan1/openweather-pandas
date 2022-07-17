@@ -9,11 +9,8 @@ parser.add_argument('command', choices=('config', 'request'))
 args = parser.parse_args()
 
 if args.command == 'config':
-    functions.set_configs()
-elif args.command == 'request':
-    database_engine = functions.initial_setup()
+    set_configs()
 
-    query = functions.get_api_response()
 
     results_dictionary = {
         'dt': [],
@@ -41,7 +38,3 @@ elif args.command == 'request':
         for key, value in item['components'].items():
             results_dictionary[key].append(value)
 
-
-    dataframe = DataFrame(data=results_dictionary)
-    print(dataframe)
-    dataframe.to_sql('weather_readings', database_engine, if_exists='append', index=False)

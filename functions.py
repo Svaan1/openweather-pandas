@@ -1,8 +1,93 @@
 from sqlalchemy import create_engine
 from requests import get
 import json
+from datetime import datetime
+from pandas import DataFrame
 
-config_json = json.load(open('config.json'))
+
+
+class QueryClient():
+
+    def __init__(self):
+        self.set_variable_defaults()
+        self.load_configs()
+        self.initial_setup()
+
+    def __str__(self):
+        return [self.results_dictionary, self.database_engine, self.query]
+
+    def set_variable_defaults(self):
+        self.results_dictionary = {
+            'dt': [],
+            'aqi': [],
+            'co': [],
+            'no': [],
+            'no2': [],
+            'o3': [],
+            'so2': [],
+            'pm2_5': [],
+            'pm10': [],
+            'nh3': [],
+            'latlon': []
+        }
+        self.query = None
+
+    def load_configs(self, configs='config.json'):
+        self.config_json = json.load(open(configs))
+
+    def initial_setup(self): # Creates database tables and database engine object
+        settings = self.config_json['database']
+
+        database_engine = create_engine(f"{settings['dialect']}://{settings['username']}:{settings['password']}@{settings['host']}:{settings['port']}/{settings['dbname']}")
+        connection = database_engine.connect()
+
+        connection.execute('''CREATE TABLE IF NOT EXISTS weather_readings (
+            dt timestamp, 
+            aqi smallint,
+            co real,
+            no real,
+            no2 real,
+            o3 real,
+            so2 real,
+            pm2_5 real,
+            pm10 real,
+            nh3 real,
+            latlon point
+            )''')
+
+        self.database_engine = database_engine
+
+    def get_api_response(self): # Creates a get request for the query and returns a json
+        settings = self.config_json['query']
+
+        response = get(f'''http://api.openweathermap.org/data/2.5/air_pollution/history?lat={settings['lat']}&lon={settings['lon']}&start={settings['start']}&end={settings['end']}&appid={self.config_json['api_key']}''')
+
+        if response.ok:
+            self.query = response.json()
+        else:
+            print("Whoops, something went wrong: ", response.json())
+        
+    def add_query_to_database(self):
+        if self.query == None:
+            print("No query available.")
+        else: 
+            for item in self.query['list']:
+                timestamp = item['dt']
+                date_time = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+
+                self.results_dictionary['dt'].append(date_time)
+                self.results_dictionary['aqi'].append(item['main']['aqi'])
+                self.results_dictionary['latlon'].append(f'({self.query["coord"]["lat"]},{self.query["coord"]["lon"]})')
+
+                for key, value in item['components'].items():
+                    self.results_dictionary[key].append(value)
+
+            dataframe = DataFrame(data=self.results_dictionary)
+            print(dataframe)
+            dataframe.to_sql('weather_readings', self.database_engine, if_exists='append', index=False)
+            self.set_variable_defaults()
+
+
 
 #  Functions  #
 def set_configs():
@@ -29,37 +114,3 @@ def set_configs():
         json_file.seek(0)
         json.dump(config, json_file, indent= 4)
         json_file.truncate()
-
-def initial_setup():
-    # Load database settings from json
-    settings = config_json['database']
-
-    # Loads up and connects database
-    database_engine = create_engine(f"{settings['dialect']}://{settings['username']}:{settings['password']}@{settings['host']}:{settings['port']}/{settings['dbname']}")
-    connection = database_engine.connect()
-
-    # Table create
-    connection.execute('''CREATE TABLE IF NOT EXISTS weather_readings (
-        dt timestamp, 
-        aqi smallint,
-        co real,
-        no real,
-        no2 real,
-        o3 real,
-        so2 real,
-        pm2_5 real,
-        pm10 real,
-        nh3 real,
-        latlon point,
-        CONSTRAINT unique_timestamps UNIQUE (dt)
-        )''')
-    return database_engine
-
-def get_api_response():
-    # Loads up query settings from json 
-    settings = config_json['query']
-
-    # Get request with given query
-    query_results = get(f'''http://api.openweathermap.org/data/2.5/air_pollution/history?lat={settings['lat']}&lon={settings['lon']}&start={settings['start']}&end={settings['end']}&appid={config_json['api_key']}''').json()
-
-    return query_results
