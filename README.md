@@ -7,3 +7,6 @@ then run the next one to get the request on a dataframe and on a table created o
 ```
 python main.py request
 ```
+And now added a create plot function which, for some reason, is lagging a lot with my 700 rows example, ill search more on that later:
+
+![image](https://user-images.githubusercontent.com/86506395/179626924-0c03b24f-7366-4b8c-8612-b3f5fe3c368b.png)
