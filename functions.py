@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from requests import get
+import matplotlib.pyplot as plt
 import json
 from datetime import datetime
 from pandas import DataFrame
@@ -71,9 +72,24 @@ class QueryClient():
             nh3 real
             )''')
 
+        return database_engine
+
+    def get_api_response(self): # Creates a get request for the query and returns a json
+        query_settings = self.settings['query']
+        response = get(f'''http://api.openweathermap.org/data/2.5/air_pollution/history?lat={query_settings['lat']}&lon={query_settings['lon']}&start={query_settings['start']}&end={query_settings['end']}&appid={self.settings['api_key']}''')
+        if response.ok:
+            return QueryResult(response.json(), self.database_setup())
+        else:
+            print("Whoops, something went wrong: ", response.json())
+
+
+class QueryResult():
+    def __init__(self, query, database_engine):
+        self.results = query
+        self.dataframe = None
         self.database_engine = database_engine
     
-    def get_query_dataframe(self, query):
+    def get_query_dataframe(self):
         results_dictionary = {
             'dt': [],
             'aqi': [],
@@ -86,7 +102,7 @@ class QueryClient():
             'pm10': [],
             'nh3': [],
         }
-        for item in query['list']:
+        for item in self.results['list']:
             timestamp = item['dt']
             date_time = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -96,18 +112,35 @@ class QueryClient():
             for key, value in item['components'].items():
                 results_dictionary[key].append(value)
 
-        dataframe = DataFrame(data=results_dictionary)
-        return dataframe
+        self.dataframe = DataFrame(data=results_dictionary)
 
-    def get_api_response(self): # Creates a get request for the query and returns a json
-        query_settings = self.settings['query']
-        response = get(f'''http://api.openweathermap.org/data/2.5/air_pollution/history?lat={query_settings['lat']}&lon={query_settings['lon']}&start={query_settings['start']}&end={query_settings['end']}&appid={self.settings['api_key']}''')
-        if response.ok:
-            return self.get_query_dataframe(response.json())
-        else:
-            print("Whoops, something went wrong: ", response.json())
+    def add_dataframe_to_database(self):
+        if not self.dataframe:
+            print("No dataframe, yet. Run get_query_dataframe first!")
+            return
+        self.dataframe.to_sql('weather_readings', self.database_engine, if_exists='append', index=False)
 
-    def add_dataframe_to_database(self, dataframe):
-        self.database_setup()
-        dataframe.to_sql('weather_readings', self.database_engine, if_exists='append', index=False)
+    def create_plot(self):
+        dataframe = self.dataframe
+        plt.subplot(3, 1, 1)
+        plt.plot("dt", "co", "", data=dataframe, label="co levels")
+        plt.ylabel("Co levels in μg/m3")
+        plt.title("Air pollution levels")
 
+        plt.subplot(3, 1, 2)
+        plt.plot("dt", "o3", "", data=dataframe, label="o3 levels")
+        plt.ylabel("O3 levels in μg/m3")
+
+        # I can improve this repetition
+        plt.subplot(3, 1, 3)
+        plt.plot("dt", "no", "", data=dataframe, label="no levels")
+        plt.plot("dt", "no2", "", data=dataframe, label="no2 levels")
+        plt.plot("dt", "so2", "", data=dataframe, label="so2 levels")
+        plt.plot("dt", "pm2_5", "", data=dataframe, label="pm2_5 levels")
+        plt.plot("dt", "pm10", "", data=dataframe, label="pm10 levels")
+        plt.plot("dt", "nh3", "", data=dataframe, label="nh3 levels")
+        plt.xlabel("Datetime")
+        plt.ylabel("Pollutant concentration in μg/m3")
+        plt.legend()
+
+        plt.show()
