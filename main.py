@@ -1,5 +1,5 @@
 
-from functions import QueryClient, set_json_config_file
+from functions import QueryClient
 from argparse import ArgumentParser
 
 # Arguments #
@@ -8,12 +8,15 @@ parser.add_argument('command', choices=('config', 'request'))
 args = parser.parse_args()
 
 if args.command == 'config':
-    set_json_config_file()
+    QueryClient().set_json_config_file()
 elif args.command == 'request':
     # Standard use of the client
-    query = QueryClient()
-    query.get_api_response()
-    query.add_dataframe_to_database()
+    client = QueryClient()
+    client.load_configs()
+    query = client.get_api_response() # Make an object for query results with add dataframe as its own function
+    client.add_dataframe_to_database(query) # So it should look like query.add_dataframe_to_database()  
+                                            # And creating it would be like Query(dataframe)
+    
 
 
 
